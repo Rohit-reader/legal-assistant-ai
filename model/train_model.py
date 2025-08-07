@@ -48,7 +48,7 @@ def save_model(model, vectorizer, model_dir='model'):
 
 def main():
     # Configuration
-    DATA_PATH = os.path.join('..', 'data', 'raw', 'legal_cases.csv')
+    DATA_PATH = os.path.join('data', 'raw', 'legal_cases.csv')
     MODEL_DIR = 'saved_models'
     
     # Load and preprocess data
