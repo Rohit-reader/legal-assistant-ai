@@ -1,0 +1,40 @@
+section,title,description,punishment,example_incidents,category,keywords
+"101","Punishment for murder","Defines punishment for unlawful killing with malice aforethought, covering intentional killings and extreme disregard for human life.","Death or imprisonment for life, and fine","Intentional killing, contract killing, poisoning, premeditated attacks, fatal assaults","Violent Crimes","murder, kill, homicide, assassinate, premeditated"
+
+"102","Murder by life-convict","Addresses murder committed by individuals already serving life sentences, with enhanced punishment.","Death or natural life imprisonment, and fine","Prison killings, inmate violence, attacks on prison staff, murders during escape attempts","Prison Offenses","life convict, prison murder, inmate violence, correctional facility"
+
+"103","Group murder","Covers murder by five or more persons, especially when motivated by race, caste, religion, etc.","Death or life imprisonment, and fine","Mob lynching, honor killings, communal violence, group assaults, targeted killings","Hate Crimes","mob violence, lynching, hate crime, communal violence, group assault"
+
+"104","Death by negligence","Addresses deaths caused by rash or negligent acts not amounting to culpable homicide.","Up to 2 years imprisonment, or fine, or both","Accidental deaths, safety violations, preventable accidents, reckless behavior","Negligence","negligence, careless, reckless, accidental death, duty of care"
+
+"105","Medical negligence causing death","Specific to registered medical practitioners whose negligence causes patient death.","Up to 5 years imprisonment and fine","Surgical errors, wrong medication, misdiagnosis, anesthesia mistakes, treatment errors","Medical Malpractice","medical negligence, malpractice, surgical error, wrong diagnosis, treatment error"
+
+"106","Abetment of suicide","Punishes those who intentionally aid, instigate or encourage suicide.","Up to 10 years imprisonment and fine","Providing means for suicide, encouraging suicide, assisting in suicide attempts","Abetment","suicide, abetment, encourage, assist, instigate"
+
+"107","Abetment of child/insane person's suicide","Enhanced punishment for abetting suicide of minors or mentally ill persons.","Death, life imprisonment, or up to 10 years and fine","Exploiting vulnerable individuals, pressuring minors, manipulating mentally ill","Enhanced Abetment","child suicide, mentally ill, vulnerable person, exploitation, coercion"
+
+"108","Group abetment of suicide","Addresses suicide abetment by multiple persons, especially in cases of group harassment.","5-10 years imprisonment and fine","Cyberbullying, mob harassment, group pressure leading to suicide, online abuse","Cyber/Group Crime","cyberbullying, group harassment, online abuse, mob pressure, social media"
+
+"109","Rash driving causing death","Punishes reckless driving that results in someone's death.","Up to 5 years imprisonment and fine","Hit and run, drunk driving, street racing, dangerous overtaking, traffic violations","Traffic Offenses","rash driving, hit and run, drunk driving, traffic violation, reckless"
+
+"110","Causing death by negligence in driving","Covers deaths caused by negligent (not rash) driving.","Up to 2 years imprisonment, or fine, or both","Careless driving, failure to maintain vehicle, distracted driving, minor traffic violations","Traffic Offenses","negligent driving, careless, traffic accident, distracted driving"
+
+"111","Grievous hurt","Defines and punishes acts causing severe physical harm or disfigurement.","Up to 7 years imprisonment and fine","Serious assaults, acid attacks, maiming, broken bones, permanent disfigurement","Violent Crimes","grievous hurt, serious injury, maiming, disfigurement, assault"
+
+"112","Voluntarily causing hurt","Punishes intentional acts causing pain, harm or disease to another person.","Up to 1 year imprisonment, or fine, or both","Simple assault, battery, minor injuries, slapping, punching without serious harm","Violent Crimes","hurt, assault, battery, physical harm, minor injury"
+
+"113","Hurt by dangerous weapons or means","Covers causing hurt using weapons, fire, poison, or other dangerous means.","Up to 3 years imprisonment, or fine, or both","Knife attacks, acid throwing, poisoning, use of sharp objects, dangerous weapons","Violent Crimes","dangerous weapon, knife attack, acid attack, poisoning, sharp object"
+
+"114","Voluntarily causing grievous hurt by dangerous weapons","Enhanced punishment for grievous hurt caused by dangerous weapons.","Up to 10 years imprisonment and fine","Shootings, stabbings, attacks with blunt objects, use of weapons to cause serious harm","Violent Crimes","grievous hurt, dangerous weapon, shooting, stabbing, blunt force"
+
+"115","Causing hurt by act endangering life or personal safety of others","Punishes acts that endanger public safety and cause hurt.","Up to 6 months imprisonment, or fine up to ₹5,000, or both","Reckless behavior in public, dangerous pranks, endangering public safety","Public Safety","public safety, endangerment, reckless behavior, public nuisance"
+
+"116","Wrongful restraint","Unlawfully restraining someone from moving in a direction they have a right to proceed.","Up to 1 month imprisonment, or fine up to ₹500, or both","Unlawful confinement, blocking passage, preventing movement, illegal detention","Personal Liberty","wrongful restraint, confinement, illegal detention, restrict movement"
+
+"117","Wrongful confinement","Unlawfully restraining someone within certain limits against their will.","Up to 1 year imprisonment, or fine up to ₹1,000, or both","Kidnapping, hostage situations, locking someone up, unlawful imprisonment","Personal Liberty","wrongful confinement, unlawful imprisonment, kidnapping, hostage"
+
+"118","Kidnapping","Taking or enticing a person away against their will or the will of their guardian.","Up to 7 years imprisonment and fine","Child abduction, bride kidnapping, custodial interference, parental kidnapping","Crime Against Person","kidnapping, abduction, child abduction, unlawful taking"
+
+"119","Kidnapping or abducting to murder","Kidnapping with intent to murder the abducted person.","Death, life imprisonment, or up to 10 years and fine","Abduction for ransom followed by murder, kidnapping with intent to kill","Violent Crimes","kidnapping to murder, abduction with intent to kill, ransom killing"
+
+"120","Kidnapping for ransom","Kidnapping someone to extort money or other concessions.","Death, life imprisonment, or up to 10 years and fine","Hostage situations, extortion, demanding money for release, kidnapping for ransom","Organized Crime","kidnapping for ransom, hostage taking, extortion, abduction for money"

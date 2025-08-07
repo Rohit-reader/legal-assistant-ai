@@ -25,29 +25,37 @@ np.random.seed(42)
 
 class BNSTextClassifier:
     def __init__(self, model_dir='saved_models'):
-        """Initialize the BNS text classifier"""
+        """Initialize the BNS text classifier with enhanced settings"""
         self.model_dir = Path(model_dir)
         self.model_dir.mkdir(parents=True, exist_ok=True)
         
-        # Initialize NLP pipeline
-        self.nlp = spacy.load('en_core_web_sm')
+        # Initialize NLP pipeline with only necessary components for better performance
+        self.nlp = spacy.load('en_core_web_sm', disable=['parser', 'ner', 'textcat'])
         
-        # Initialize model components
+        # Enhanced vectorizer with improved parameters
         self.vectorizer = TfidfVectorizer(
-            max_features=20000,
-            ngram_range=(1, 3),
+            max_features=15000,  # Slightly reduced to prevent overfitting
+            ngram_range=(1, 2),  # Focus on unigrams and bigrams only
             stop_words='english',
-            min_df=2,
-            max_df=0.95,
-            sublinear_tf=True
+            min_df=3,  # Increased to filter out rare terms
+            max_df=0.85,  # Slightly lower to filter out very common terms
+            sublinear_tf=True,
+            analyzer='word',
+            norm='l2',
+            use_idf=True,
+            smooth_idf=True
         )
         
+        # Enhanced classifier with optimized parameters
         self.classifier = LinearSVC(
             class_weight='balanced',
             random_state=42,
-            max_iter=5000,
-            C=0.5,
-            dual=False
+            max_iter=10000,  # Increased for better convergence
+            C=0.75,  # Slightly higher C for less regularization
+            dual=False,
+            loss='squared_hinge',
+            penalty='l2',
+            tol=1e-4
         )
         
         self.calibrated_classifier = None
@@ -109,71 +117,105 @@ class BNSTextClassifier:
         return list(set(augmented_texts))  # Remove duplicates
     
     def load_data(self, data_path):
-        """Load and preprocess the BNS dataset with data augmentation"""
-        # Load the dataset
-        df = pd.read_csv(data_path)
-        df = df.dropna(subset=['description', 'example_incidents', 'punishment'])
+        """Load and preprocess the expanded BNS dataset with enhanced data augmentation"""
+        # Load the dataset with explicit encoding
+        df = pd.read_csv(data_path, encoding='utf-8')
         
-        # Store section details for later use
+        # Handle missing values more robustly
+        required_columns = ['section', 'title', 'description', 'punishment', 'example_incidents', 'category', 'keywords']
+        df = df.dropna(subset=required_columns[:4])  # Only require first 4 columns
+        
+        # Store section details for later use with all available columns
         self.section_details = df.set_index('section').to_dict('index')
         
         texts = []
         labels = []
         
         print("Processing sections and augmenting data...")
-        for _, row in tqdm(df.iterrows(), total=len(df)):
+        for _, row in tqdm(df.iterrows(), total=len(df), desc="Processing sections"):
             section_id = row['section']
             section_title = row['title']
             label = f"{section_id} - {section_title}"
             
-            # Get examples and clean them
-            section_examples = []
-            if pd.notna(row['example_incidents']):
-                section_examples = [ex.strip() for ex in str(row['example_incidents']).split(';') if ex.strip()]
+            # Create a comprehensive text representation for each section
+            section_texts = []
             
-            # Add the main description as an example
+            # Add the main description
             if pd.notna(row['description']):
-                section_examples.append(row['description'])
+                section_texts.append(f"Description: {row['description']}")
             
-            # Add punishment information as context
+            # Add punishment information
             if pd.notna(row['punishment']):
-                section_examples.append(f"Punishment: {row['punishment']}")
+                section_texts.append(f"Punishment: {row['punishment']}")
             
-            # Add keywords as additional context
+            # Add examples
+            if pd.notna(row['example_incidents']):
+                examples = [ex.strip() for ex in str(row['example_incidents']).split(';') if ex.strip()]
+                section_texts.extend([f"Example: {ex}" for ex in examples])
+            
+            # Add category and keywords as context
+            if pd.notna(row.get('category', '')):
+                section_texts.append(f"Category: {row['category']}")
+            
             if pd.notna(row.get('keywords', '')):
-                section_examples.append(f"Keywords: {row['keywords']}")
+                section_texts.append(f"Keywords: {row['keywords']}")
             
-            # Process and augment the examples
-            for example in section_examples:
-                # Add the original example
-                processed = self.preprocess_text(example)
-                if processed:
-                    texts.append(processed)
+            # Combine all text for this section
+            combined_text = ' '.join(section_texts)
+            
+            # Process and add the main text
+            processed = self.preprocess_text(combined_text)
+            if processed:
+                texts.append(processed)
+                labels.append(label)
+            
+            # Generate augmented versions with more variety
+            augmented_texts = self.augment_text(combined_text, n_augment=3)
+            for aug_text in augmented_texts:
+                processed_aug = self.preprocess_text(aug_text)
+                if processed_aug and processed_aug != processed:
+                    texts.append(processed_aug)
                     labels.append(label)
-                
-                # Generate augmented versions
-                augmented = self.augment_text(example)
-                for aug_text in augmented:
-                    processed_aug = self.preprocess_text(aug_text)
-                    if processed_aug and processed_aug != processed:  # Don't add duplicates
-                        texts.append(processed_aug)
-                        labels.append(label)
         
         return texts, labels, df
     
-    def train(self, X, y, test_size=0.15):
+    def train(self, X, y, test_size=0.2):
         """Train the classifier with cross-validation and calibration"""
-        # Split data into train and test sets
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, 
-            test_size=test_size,
-            random_state=42,
-            stratify=y,
-            shuffle=True
-        )
+        # Initialize classes_ from the training data
+        self.classes_ = np.unique(y)
+        
+        # Calculate class distribution
+        class_counts = pd.Series(y).value_counts()
+        min_samples_per_class = min(class_counts) if len(class_counts) > 0 else 0
+        
+        # For very small datasets, use a simple train-test split without stratification
+        use_stratify = min_samples_per_class >= 2 and len(class_counts) < 20
+        
+        # For extremely small datasets, use all data for training
+        if len(X) < 20:
+            print("Very small dataset detected. Using all data for training...")
+            X_train, X_test, y_train, y_test = X, [], y, []
+        else:
+            # Adjust test_size if needed
+            if min_samples_per_class > 0 and test_size * min_samples_per_class < 1:
+                test_size = 0.5 / min_samples_per_class
+                test_size = min(0.3, test_size)  # Cap at 30% test size
+                print(f"Adjusted test_size to {test_size:.2f} to ensure sufficient samples per class")
+            
+            # Split data into train and test sets
+            split_params = {
+                'test_size': test_size,
+                'random_state': 42,
+                'shuffle': True
+            }
+            
+            if use_stratify:
+                split_params['stratify'] = y
+            
+            X_train, X_test, y_train, y_test = train_test_split(X, y, **split_params)
         
         print(f"Training set size: {len(X_train)}")
-        print(f"Test set size: {len(X_test)}")
+        print(f"Test set size: {len(X_test) if len(X_test) > 0 else 'N/A (using all data for training)'}")
         
         # Vectorize the training data
         print("Fitting vectorizer...")
@@ -181,50 +223,78 @@ class BNSTextClassifier:
         
         # Calculate class weights
         print("Calculating class weights...")
-        classes = np.unique(y_train)
-        self.classes_ = classes
-        class_weights = compute_class_weight('balanced', classes=classes, y=y_train)
-        class_weight_dict = dict(zip(classes, class_weights))
-        
-        # Update classifier with balanced class weights
+        self.classes_ = np.unique(y_train)
+        class_weights = compute_class_weight('balanced', classes=self.classes_, y=y_train)
+        class_weight_dict = dict(zip(self.classes_, class_weights))
         self.classifier.class_weight = class_weight_dict
-        
-        # Perform cross-validation
-        print("\nPerforming cross-validation...")
-        cv = StratifiedKFold(n_splits=min(5, len(classes)), shuffle=True, random_state=42)
-        cv_scores = cross_val_score(
-            self.classifier, X_train_vec, y_train,
-            cv=cv,
-            scoring='f1_weighted',
-            n_jobs=-1
-        )
-        
-        print(f"Cross-validation F1 scores: {cv_scores}")
-        print(f"Mean CV F1 score: {np.mean(cv_scores):.3f} ± {np.std(cv_scores):.3f}")
         
         # Train the final model on the full training set
         print("\nTraining final model...")
         self.classifier.fit(X_train_vec, y_train)
         
-        # Calibrate the classifier for better probability estimates
-        print("Calibrating classifier...")
-        self.calibrated_classifier = CalibratedClassifierCV(
-            self.classifier, 
-            cv='prefit',
-            method='sigmoid'
-        )
-        self.calibrated_classifier.fit(X_train_vec, y_train)
+        # For very small datasets, skip calibration to avoid errors
+        min_samples_per_class = min(pd.Series(y_train).value_counts())
         
-        # Evaluate on test set
-        print("\nEvaluating on test set...")
-        X_test_vec = self.vectorizer.transform(X_test)
-        y_pred = self.calibrated_classifier.predict(X_test_vec)
+        # Only calibrate if we have enough samples and at least 2 classes with sufficient samples
+        if (len(X_train) >= 10 and len(self.classes_) >= 2 and 
+            min_samples_per_class >= 2 and len(X_train) > len(self.classes_)):
+            try:
+                print("Calibrating classifier...")
+                # Use a smaller number of folds for small datasets
+                n_folds = min(3, min_samples_per_class)
+                if n_folds < 2:  # Need at least 2 folds for calibration
+                    raise ValueError("Insufficient samples per class for calibration")
+                    
+                self.calibrated_classifier = CalibratedClassifierCV(
+                    self.classifier,
+                    cv=min(n_folds, len(X_train) // 2),  # Ensure we have enough samples per fold
+                    method='sigmoid',
+                    n_jobs=-1
+                )
+                self.calibrated_classifier.fit(X_train_vec, y_train)
+                model_to_use = self.calibrated_classifier
+                print("Calibration successful.")
+            except Exception as e:
+                print(f"Calibration failed: {str(e)}. Using uncalibrated model.")
+                model_to_use = self.classifier
+        else:
+            print("Insufficient data for calibration, using uncalibrated model...")
+            model_to_use = self.classifier
         
-        print("\nClassification Report:")
-        print(classification_report(y_test, y_pred, zero_division=0))
+        # Evaluate on test set if we have one
+        accuracy, f1 = 0, 0
+        if len(X_test) > 0:
+            print("\nEvaluating on test set...")
+            X_test_vec = self.vectorizer.transform(X_test)
+            y_pred = model_to_use.predict(X_test_vec)
+            
+            print("\nClassification Report:")
+            print(classification_report(y_test, y_pred, zero_division=0))
+            
+            accuracy = accuracy_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
+            print(f"\nAccuracy: {accuracy:.3f}")
+            print(f"Weighted F1: {f1:.3f}")
+        else:
+            print("\nNo test samples available for evaluation.")
+            
+            # If no test set, do a simple cross-validation
+            if len(X_train) >= 5 and len(self.classes_) >= 2:
+                print("Performing cross-validation on training set...")
+                cv = min(3, min(np.bincount([np.where(self.classes_ == cls)[0][0] for cls in y_train])))
+                if cv >= 2:
+                    cv_scores = cross_val_score(
+                        self.classifier, X_train_vec, y_train,
+                        cv=cv,
+                        scoring='f1_weighted',
+                        n_jobs=-1
+                    )
+                    print(f"CV F1 scores: {cv_scores}")
+                    print(f"Mean CV F1: {np.mean(cv_scores):.3f} ± {np.std(cv_scores):.3f}")
+                    accuracy = np.mean(cv_scores)
+                    f1 = np.mean(cv_scores)
         
-        print("\nAccuracy:", accuracy_score(y_test, y_pred))
-        print("Weighted F1:", f1_score(y_test, y_pred, average='weighted', zero_division=0))
+        return X_test, y_test, accuracy, f1
         
         return X_test, y_test
     
@@ -234,8 +304,12 @@ class BNSTextClassifier:
         vectorizer_path = self.model_dir / 'bns_vectorizer.joblib'
         details_path = self.model_dir / 'bns_section_details.csv'
         
+        # Ensure the directory exists
+        self.model_dir.mkdir(parents=True, exist_ok=True)
+        
         # Save the model components
-        joblib.dump(self.calibrated_classifier, model_path)
+        model_to_save = self.calibrated_classifier if self.calibrated_classifier is not None else self.classifier
+        joblib.dump(model_to_save, model_path)
         joblib.dump(self.vectorizer, vectorizer_path)
         
         # Save section details as a DataFrame
@@ -275,7 +349,7 @@ class BNSTextClassifier:
 
 def main():
     # Configuration
-    DATA_PATH = os.path.join('data', 'raw', 'bns_enhanced_dataset.csv')
+    DATA_PATH = os.path.join('data', 'raw', 'bns_extended_concise.csv')  # Updated to use the concise dataset
     MODEL_DIR = 'saved_models'
     
     # Create output directory if it doesn't exist
@@ -295,21 +369,45 @@ def main():
         
         # Print class distribution
         print("\nClass distribution in dataset:")
-        print(pd.Series(y).value_counts().sort_index())
+        class_counts = pd.Series(y).value_counts().sort_index()
+        print(class_counts)
+        
+        # Check if we have enough samples
+        min_samples = min(class_counts)
+        if min_samples < 2:
+            print(f"\nWARNING: Some classes have very few samples (minimum: {min_samples}). "
+                  "Consider adding more training data for better performance.")
         
         # Train the model
-        X_test, y_test = classifier.train(X, y)
+        print("\nStarting model training...")
+        X_test, y_test, accuracy, f1 = classifier.train(X, y)
         
         # Save the model
         print("\nSaving model and artifacts...")
         classifier.save_model()
         
+        # Print final summary
+        print("\n" + "=" * 80)
+        print("TRAINING SUMMARY")
+        print("=" * 80)
+        print(f"Total training samples: {len(X)}")
+        print(f"Number of classes: {len(class_counts)}")
+        if len(X_test) > 0:
+            print(f"Test set size: {len(X_test)}")
+            print(f"Test accuracy: {accuracy:.3f}")
+            print(f"Test weighted F1: {f1:.3f}")
+        print("\nModel and artifacts saved to:")
+        print(f"- Model: {os.path.join(MODEL_DIR, 'bns_classifier.joblib')}")
+        print(f"- Vectorizer: {os.path.join(MODEL_DIR, 'bns_vectorizer.joblib')}")
+        print(f"- Section details: {os.path.join(MODEL_DIR, 'bns_section_details.csv')}")
         print("\n" + "=" * 80)
         print("TRAINING COMPLETED SUCCESSFULLY!")
         print("=" * 80)
         
     except Exception as e:
         print(f"\nERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
         print("\nTraining failed. Please check the error message above.")
         return False
     
